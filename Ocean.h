@@ -154,12 +154,15 @@ class OceanContext : public UsingThreadedFFTW
   bool _do_chop;
   bool _do_jacobian;
 
-  float disp[3];
-  float normal[3];
-  float Jminus;
-  float Jplus;
-  float Eminus[3];
-  float Eplus[3];
+  struct Outputs
+  {
+    float disp[3];
+    float normal[3];
+    float Jminus;
+    float Jplus;
+    float Eminus[3];
+    float Eplus[3];
+  };
 
   ~OceanContext()
   {
@@ -250,7 +253,7 @@ class OceanContext : public UsingThreadedFFTW
   }
 
 
-  void eval_uv(float u,float v)
+  void eval_uv(float u,float v, Outputs &outputs) const
   {
     int i0,i1,j0,j1;
     float frac_x,frac_z;
@@ -285,34 +288,34 @@ class OceanContext : public UsingThreadedFFTW
     {
       if (_do_disp_y)
       {
-        disp[1] = BILERP(_disp_y);
+        outputs.disp[1] = BILERP(_disp_y);
       }
       if (_do_normals)
       {
-        normal[0] = BILERP(_N_x);
-        normal[1] = BILERP(_N_y);
-        normal[2] = BILERP(_N_z);
+        outputs.normal[0] = BILERP(_N_x);
+        outputs.normal[1] = BILERP(_N_y);
+        outputs.normal[2] = BILERP(_N_z);
       }
       if (_do_chop)
       {
-        disp[0] = BILERP(_disp_x);
-        disp[2] = BILERP(_disp_z);
+        outputs.disp[0] = BILERP(_disp_x);
+        outputs.disp[2] = BILERP(_disp_z);
       }
       else
       {
-        disp[0] = 0.0;
-        disp[2] = 0.0;
+        outputs.disp[0] = 0.0;
+        outputs.disp[2] = 0.0;
       }
       if (_do_jacobian)
       {
-        compute_eigenstuff(BILERP(_Jxx),BILERP(_Jzz),BILERP(_Jxz));
+        compute_eigenstuff(BILERP(_Jxx),BILERP(_Jzz),BILERP(_Jxz), outputs);
       }
     }
 #undef BILERP
   }
 
   // use catmullrom interpolation rather than linear
-  void eval2_uv(float u,float v)
+  void eval2_uv(float u,float v, Outputs &outputs) const
   {
     int i0,i1,i2,i3,j0,j1,j2,j3;
     float frac_x,frac_z;
@@ -361,100 +364,100 @@ class OceanContext : public UsingThreadedFFTW
     {
       if (_do_disp_y)
       {
-        disp[1] = INTERP(_disp_y) ;
+        outputs.disp[1] = INTERP(_disp_y) ;
       }
       if (_do_normals)
       {
-        normal[0] = INTERP(_N_x);
-        normal[1] = INTERP(_N_y);
-        normal[2] = INTERP(_N_z);
+        outputs.normal[0] = INTERP(_N_x);
+        outputs.normal[1] = INTERP(_N_y);
+        outputs.normal[2] = INTERP(_N_z);
       }
       if (_do_chop)
       {
-        disp[0] = INTERP(_disp_x);
-        disp[2] = INTERP(_disp_z);
+        outputs.disp[0] = INTERP(_disp_x);
+        outputs.disp[2] = INTERP(_disp_z);
       }
       else
       {
-        disp[0] = 0.0;
-        disp[2] = 0.0;
+        outputs.disp[0] = 0.0;
+        outputs.disp[2] = 0.0;
       }
 
       if (_do_jacobian)
       {
-        compute_eigenstuff(INTERP(_Jxx),INTERP(_Jzz),INTERP(_Jxz));
+        compute_eigenstuff(INTERP(_Jxx),INTERP(_Jzz),INTERP(_Jxz), outputs);
       }
     }
 #undef INTERP
 
   }
 
-  inline void compute_eigenstuff(const my_float& jxx,const my_float& jzz,const my_float& jxz)
+  inline void compute_eigenstuff(const my_float& jxx,const my_float& jzz,const my_float& jxz, Outputs &outputs) const
   {
     my_float a,b,qplus,qminus;
     a = jxx + jzz;
     b = sqrt((jxx - jzz)*(jxx - jzz) + 4 * jxz * jxz);
 
-    Jminus = 0.5*(a-b);
-    Jplus  = 0.5*(a+b);
+    outputs.Jminus = 0.5*(a-b);
+    outputs.Jplus  = 0.5*(a+b);
 
-    qplus  = (Jplus  - jxx)/jxz;
-    qminus = (Jminus - jxx)/jxz;
+    qplus  = (outputs.Jplus  - jxx)/jxz;
+    qminus = (outputs.Jminus - jxx)/jxz;
 
     a = sqrt(1 + qplus*qplus);
     b = sqrt(1 + qminus*qminus);
 
-    Eplus[0] = 1.0/ a;
-    Eplus[1] = 0.0;
-    Eplus[2] = qplus/a;
+    outputs.Eplus[0] = 1.0/ a;
+    outputs.Eplus[1] = 0.0;
+    outputs.Eplus[2] = qplus/a;
 
-    Eminus[0] = 1.0/b;
-    Eminus[1] = 0.0;
-    Eminus[2] = qminus/b;
+    outputs.Eminus[0] = 1.0/b;
+    outputs.Eminus[1] = 0.0;
+    outputs.Eminus[2] = qminus/b;
   }
 
-  void eval_xz(float x,float z)
+  void eval_xz(float x,float z, Outputs &outputs) const
   {
     assert(_Lx != 0 && _Lz  != 0);
-    eval_uv(x/_Lx,z/_Lz);
+    eval_uv(x/_Lx,z/_Lz, outputs);
   }
-  void eval2_xz(float x,float z)
+  void eval2_xz(float x,float z, Outputs &outputs) const
   {
     assert(_Lx != 0 && _Lz  != 0);
-    eval2_uv(x/_Lx,z/_Lz);
+    eval2_uv(x/_Lx,z/_Lz, outputs);
   }
 
   // note that this doesn't wrap properly for i,j < 0, but its
   // not really meant for that being just a way to get the raw data out
   // to save in some image format.
-  void eval_ij(int i,int j)
+  void eval_ij(int i,int j, Outputs &outputs) const
   {
     i = abs(i) % _M;
     j = abs(j) % _N;
 
-    disp[1] = _do_disp_y ? _disp_y(i,j) : 0.0f;
+    outputs.disp[1] = _do_disp_y ? _disp_y(i,j) : 0.0f;
 
     if (_do_chop)
     {
-      disp[0] = _disp_x(i,j);
-      disp[2] = _disp_z(i,j);
+      outputs.disp[0] = _disp_x(i,j);
+      outputs.disp[2] = _disp_z(i,j);
     }
     else
     {
-      disp[0] = 0.0f;
-      disp[2] = 0.0f;
+      outputs.disp[0] = 0.0f;
+      outputs.disp[2] = 0.0f;
     }
 
 
     if (_do_normals)
     {
-      normal[0] = _N_x(i,j);
-      normal[1] = _N_y(i,j);
-      normal[2] = _N_z(i,j);
+      outputs.normal[0] = _N_x(i,j);
+      outputs.normal[1] = _N_y(i,j);
+      outputs.normal[2] = _N_z(i,j);
     }
     if (_do_jacobian)
     {
-      compute_eigenstuff(_Jxx(i,j),_Jzz(i,j),_Jxz(i,j));
+      compute_eigenstuff(_Jxx(i,j),_Jzz(i,j),_Jxz(i,j), outputs);
     }
   }
 

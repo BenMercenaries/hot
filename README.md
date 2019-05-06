@@ -27,3 +27,27 @@ will rebuild and install without a time consuming recompile of the 3rd party lib
 (Read the source of the compile.sh script for more build options.)
 
 Test by loading the examples, start with SOP_Simple.hip.
+
+Compile for Guerilla
+=======
+
+First, compile the 3rdparty libs:
+
+> cd 3rdparty
+
+> ./build_linux.sh
+
+Then, compile the Guerilla plugin:
+
+> cd guerilla
+
+> make
+
+You'll probably need to fix paths and options in the makefile, or create a config.make
+file next to the makefile, with the necessary overrides. Check makefile for more explanations.
+
+The compiled so will be in release by default.
+
+> make install
+
+copies the lib into the Guerilla plugins install directory. Probably requires admin privileges.
